@@ -28,7 +28,7 @@ func main() {
 			log.Fatal(err)
 		}
 		_, err = cfg.Section("default").NewKey("server_addr", "127.0.0.1:59776")
-		_, err = cfg.Section("default").NewKey("proxy_url", "http://127.0.0.1:7890")
+		_, err = cfg.Section("default").NewKey("proxy_url", "http://YouHttpProxyUrl:Port")
 		if err != nil {
 			log.Fatal(err)
 		}
