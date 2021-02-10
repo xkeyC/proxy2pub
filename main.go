@@ -55,7 +55,7 @@ func main() {
 	if err != nil {
 		fmt.Println("HTTP PROXY URL HAS ERROR:\n" + err.Error() + "\nPress enter to try again:")
 		var s string
-		_, _ = fmt.Scanln("%q", &s)
+		_, _ = fmt.Scanln(&s)
 		main()
 	}
 
