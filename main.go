@@ -12,6 +12,8 @@ import (
 )
 
 var httpClient http.Client
+var FlutterStorageBaseUrl string
+var PubHostedUrl string
 
 func main() {
 	/// check Conf
@@ -62,10 +64,18 @@ func main() {
 }
 
 func openProxy(addr string) {
+
+	var httpUrl = "http://" + addr + "/"
+	FlutterStorageBaseUrl = httpUrl + "storage"
+	PubHostedUrl = httpUrl + "pub"
+
 	httpClient = http.Client{}
 	/// open Proxy
 	http.HandleFunc("/", proxyHandleFunc)
-	fmt.Println("server start with " + addr)
+	fmt.Println("server start with " + addr +
+		"\n FLUTTER_STORAGE_BASE_URL=" + FlutterStorageBaseUrl +
+		"\n PUB_HOSTED_URL=" + PubHostedUrl)
+	fmt.Println("--------------------------------------------------------------------------------")
 	err := http.ListenAndServe(addr, nil)
 	if err != nil {
 		log.Println(err)
@@ -86,17 +96,32 @@ func proxyHandleFunc(writer http.ResponseWriter, request *http.Request) {
 	}
 	request.URL.Host = domain
 	request.URL.Scheme = "https"
-	resp, err := httpClient.Get(request.URL.String())
+	var resp *http.Response
+	var err error
+	log.Println(request.Method + " " + request.URL.String())
+	switch request.Method {
+	case "GET":
+		resp, err = httpClient.Get(request.URL.String())
+		break
+	case "POST":
+		resp, err = httpClient.Post(request.URL.String(), request.Header.Get("Content-Type"), request.Body)
+	}
+
 	if err != nil {
 		log.Println(err)
 		writer.WriteHeader(500)
 		return
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 	}()
+	writer.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
 	body, err := ioutil.ReadAll(resp.Body)
-	_, err = writer.Write(body)
+	var sBody = string(body)
+	sBody = strings.ReplaceAll(sBody, "https://pub.dartlang.org/", PubHostedUrl+"/")
+	_, err = writer.Write([]byte(sBody))
 	if err != nil {
 		log.Println(err)
 		writer.WriteHeader(500)
