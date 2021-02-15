@@ -86,10 +86,10 @@ func openProxy(addr string) {
 
 func proxyHandleFunc(writer http.ResponseWriter, request *http.Request) {
 	var domain = ""
-	if strings.Contains(request.URL.Path, "/pub") {
+	if strings.Index(request.URL.Path, "/pub") == 0 {
 		request.URL.Path = strings.Replace(request.URL.Path, "/pub", "", 1)
 		domain = "pub.dev"
-	} else if strings.Contains(request.URL.Path, "/storage") {
+	} else if strings.Index(request.URL.Path, "/storage") == 0 {
 		request.URL.Path = strings.Replace(request.URL.Path, "/storage", "", 1)
 		domain = "storage.googleapis.com"
 	} else {
@@ -133,11 +133,27 @@ func proxyHandleFunc(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set(s, resp.Header.Get(s))
 	}
 
-	if strings.Contains(contentType, "application/json") {
-		fmt.Println("[JSON]:" + request.Method + " " + request.URL.String())
+	if request.URL.Host == "pub.dev" && (strings.Contains(contentType, "application/json") ||
+		strings.Contains(contentType, "text/") ||
+		strings.Contains(contentType, "application/javascript")) {
+		fmt.Println("[TEXT]:" + request.Method + " " + request.URL.String())
 		body, err := ioutil.ReadAll(resp.Body)
 		var sBody = string(body)
-		sBody = strings.ReplaceAll(sBody, "https://pub.dartlang.org/", PubHostedUrl+"/")
+		/// Some Replace for pub.dev
+
+		if strings.Contains(contentType, "application/json") {
+			sBody = strings.ReplaceAll(sBody, "https://pub.dartlang.org/", PubHostedUrl+"/")
+		} else {
+			sBody = strings.ReplaceAll(sBody, "=\"/static/", "=\"/pub/static/")
+			sBody = strings.ReplaceAll(sBody, "=\"/packages/", "=\"/pub/packages/")
+			sBody = strings.ReplaceAll(sBody, "=\"/documentation/", "=\"/pub/documentation/")
+			sBody = strings.ReplaceAll(sBody, "=\"/help/", "=\"/pub/help/")
+			sBody = strings.ReplaceAll(sBody, "<link rel=\"shortcut icon\" href=\"/favicon.ico", "<link rel=\"shortcut icon\" href=\"/pub/favicon.ico")
+			sBody = strings.ReplaceAll(sBody, "<a class=\"logo\" href=\"/\">", "<a class=\"logo\" href=\"/pub\">")
+			sBody = strings.ReplaceAll(sBody, "https://storage.googleapis.com/pub-packages/", FlutterStorageBaseUrl+"/pub-packages/")
+
+		}
+
 		_, err = writer.Write([]byte(sBody))
 		if err != nil {
 			log.Println(err)
