@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"gopkg.in/ini.v1"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -53,7 +54,7 @@ func main() {
 
 	proxyUrl, err := url.Parse(proxyUrlString)
 	if err != nil {
-		fmt.Println("HTTP PROXY URL HAS ERROR:\n" + err.Error() + "\nPress enter to try again:")
+		log.Println("HTTP PROXY URL HAS ERROR:\n" + err.Error() + "\nPress enter to try again:")
 		var s string
 		_, _ = fmt.Scanln(&s)
 		main()
@@ -98,13 +99,16 @@ func proxyHandleFunc(writer http.ResponseWriter, request *http.Request) {
 	request.URL.Scheme = "https"
 	var resp *http.Response
 	var err error
-	log.Println(request.Method + " " + request.URL.String())
 	switch request.Method {
 	case "GET":
 		resp, err = httpClient.Get(request.URL.String())
 		break
 	case "POST":
 		resp, err = httpClient.Post(request.URL.String(), request.Header.Get("Content-Type"), request.Body)
+		break
+	case "HEAD":
+		resp, err = httpClient.Head(request.URL.String())
+		break
 	}
 
 	if err != nil {
@@ -112,20 +116,60 @@ func proxyHandleFunc(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(500)
 		return
 	}
+
 	defer func() {
-		if resp.Body != nil {
+		if resp != nil && resp.Body != nil {
 			_ = resp.Body.Close()
 		}
 	}()
-	writer.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-	body, err := ioutil.ReadAll(resp.Body)
-	var sBody = string(body)
-	sBody = strings.ReplaceAll(sBody, "https://pub.dartlang.org/", PubHostedUrl+"/")
-	_, err = writer.Write([]byte(sBody))
-	if err != nil {
-		log.Println(err)
+
+	if resp == nil {
 		writer.WriteHeader(500)
+		return
 	}
+
+	var contentType = resp.Header.Get("Content-Type")
+	for s := range resp.Header {
+		writer.Header().Set(s, resp.Header.Get(s))
+	}
+
+	if strings.Contains(contentType, "application/json") {
+		fmt.Println("[JSON]:" + request.Method + " " + request.URL.String())
+		body, err := ioutil.ReadAll(resp.Body)
+		var sBody = string(body)
+		sBody = strings.ReplaceAll(sBody, "https://pub.dartlang.org/", PubHostedUrl+"/")
+		_, err = writer.Write([]byte(sBody))
+		if err != nil {
+			log.Println(err)
+			writer.WriteHeader(500)
+		}
+	} else {
+		fmt.Println("[Buffer]:" + request.Method + " " + request.URL.String())
+		for {
+			var b = make([]byte, 4096)
+			count, err := resp.Body.Read(b)
+			if err == io.EOF {
+				return
+			}
+			if err != nil {
+				println(err)
+				return
+			}
+			if count < 4096 {
+				if count == 0 {
+					return
+				}
+				b = b[0:count]
+			}
+			_, err = writer.Write(b)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			writer.(http.Flusher).Flush()
+		}
+	}
+
 }
 
 func exists(path string) bool {
