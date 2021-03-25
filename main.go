@@ -142,7 +142,7 @@ func proxyHandleFunc(writer http.ResponseWriter, request *http.Request) {
 		/// Some Replace for pub.dev
 
 		if strings.Contains(contentType, "application/json") {
-			sBody = strings.ReplaceAll(sBody, "https://pub.dartlang.org/", PubHostedUrl+"/")
+			sBody = strings.ReplaceAll(sBody, "\"archive_url\":\"https://pub.dartlang.org", "\"archive_url\":\""+PubHostedUrl)
 		} else {
 			sBody = strings.ReplaceAll(sBody, "=\"/static/", "=\"/pub/static/")
 			sBody = strings.ReplaceAll(sBody, "=\"/packages/", "=\"/pub/packages/")
