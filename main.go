@@ -92,6 +92,11 @@ func proxyHandleFunc(writer http.ResponseWriter, request *http.Request) {
 	} else if strings.Index(request.URL.Path, "/storage") == 0 {
 		request.URL.Path = strings.Replace(request.URL.Path, "/storage", "", 1)
 		domain = "storage.googleapis.com"
+		// https://github.com/flutter/flutter/pull/94137 customizable cipd URL
+		if strings.Contains(request.URL.Path, "/flutter_infra_release/cipd/") {
+			request.URL.Path = strings.ReplaceAll(request.URL.Path, "/flutter_infra_release/cipd/", "/dl/")
+			domain = "chrome-infra-packages.appspot.com"
+		}
 	} else {
 		return
 	}
@@ -151,7 +156,6 @@ func proxyHandleFunc(writer http.ResponseWriter, request *http.Request) {
 			sBody = strings.ReplaceAll(sBody, "<link rel=\"shortcut icon\" href=\"/favicon.ico", "<link rel=\"shortcut icon\" href=\"/pub/favicon.ico")
 			sBody = strings.ReplaceAll(sBody, "<a class=\"logo\" href=\"/\">", "<a class=\"logo\" href=\"/pub\">")
 			sBody = strings.ReplaceAll(sBody, "https://storage.googleapis.com/pub-packages/", FlutterStorageBaseUrl+"/pub-packages/")
-
 		}
 
 		_, err = writer.Write([]byte(sBody))
